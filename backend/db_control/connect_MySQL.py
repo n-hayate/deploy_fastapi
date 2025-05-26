@@ -1,12 +1,12 @@
 from sqlalchemy import create_engine
 
 import os
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 
 # 環境変数の読み込み
-from pathlib import Path
-env_path = Path(__file__).resolve().parent.parent / '.env'
-load_dotenv(dotenv_path=env_path)
+#from pathlib import Path
+#env_path = Path(__file__).resolve().parent.parent / '.env'
+#load_dotenv(dotenv_path=env_path)
 
 # データベース接続情報
 DB_USER = os.getenv('DB_USER')
