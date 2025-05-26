@@ -8,68 +8,45 @@ on:
   push:
     branches:
       - main
-    paths: # ★★★ 修正点1: backendディレクトリ内の変更があった場合のみワークフローをトリガー
+    paths: # backendディレクトリ内の変更があった場合のみワークフローをトリガー
       - 'backend/**'
   workflow_dispatch:
 
 jobs:
-  build:
+  build: # このビルドジョブは主に環境準備と依存関係のインストールをトリガーするためのもの（Oryxが担当）
     runs-on: ubuntu-latest
     permissions:
       contents: read #This is required for actions/checkout
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4 # リポジトリ全体をクローン
 
       - name: Set up Python version
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      
+      # ★★★ ここにあった仮想環境作成と依存関係インストールのステップは削除しました ★★★
+      # これらの処理は、Oryx (enable-oryx-build: true) がデプロイ時に自動的に行います。
+      # ここで手動で行うとOryxの処理と競合し、問題を引き起こす可能性がありました。
 
-      - name: Create and start virtual environment
-        # ★★★ 修正点2: backendディレクトリ内で仮想環境を作成
-        working-directory: ./backend # backendディレクトリを作業ディレクトリに設定
-        run: |
-          python -m venv venv
-          source venv/bin/activate
-          
-      - name: Install dependencies
-        # ★★★ 修正点3: backendディレクトリ内で依存関係をインストール
-        working-directory: ./backend # backendディレクトリを作業ディレクトリに設定
-        run: pip install -r requirements.txt
-          
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
-
-      - name: Zip artifact for deployment
-        # ★★★ 修正点4: backendディレクトリの内容のみをZIP化し、そのZIPファイルを親ディレクトリ（ジョブのルート）に作成
-        working-directory: ./backend # backendディレクトリを作業ディレクトリに設定
-        # backend内のファイルをZIP化し、ZIPファイル自体はbackendの親ディレクトリに置く
-        run: zip -r ../release.zip ./* -x "venv/*" -x "__pycache__/*" -x "*.pyc"
-
-      - name: Upload artifact for deployment jobs
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-app
-          # ★★★ 修正点5: 親ディレクトリに作成したZIPファイルをアップロード
-          path: release.zip # ジョブのルートにあるrelease.zipを指定
-          # !venv/ はZIP作成時に除外済みのため、ここでは不要
+      # ★★★ ここにあったZIP化とアーティファクトアップロードのステップも削除しました ★★★
+      # Oryxが直接ソースディレクトリをZIP化してデプロイするため不要です。
 
   deploy:
     runs-on: ubuntu-latest
-    needs: build
+    needs: build # buildジョブが完了してから実行
     environment:
       name: 'Production'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
       
     steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: python-app
+      - uses: actions/checkout@v4 # ★★★ deployジョブでもコードをクローンする ★★★
+                                 # deployジョブがbuildジョブの成果物に依存しないため、必須です。
 
-      - name: Unzip artifact for deployment
-        # ★★★ 修正点6: ダウンロードしたZIPファイルを現在の作業ディレクトリに解凍
-        run: unzip release.zip # 現在のディレクトリに解凍される
+      # ★★★ ここにあった成果物のダウンロードと解凍のステップは削除しました ★★★
+      # package: './backend' でソースディレクトリを直接指定するため不要です。
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
@@ -78,5 +55,10 @@ jobs:
           app-name: 'app-001-step3-1-suzuyu-py-42'
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_BE7A6E84BE1D4FB3A71965841F18E4E8 }}
-          # ★★★ 修正点7: 解凍されたアプリケーションコンテンツがカレントディレクトリにあるため、'.' を指定
-          package: '.' # 現在のディレクトリ全体をデプロイ対象とする
+          # ★★★ リポジトリ内のbackendディレクトリを直接デプロイ対象とする ★★★
+          package: './backend' 
+          # ★★★ Oryxビルドを有効化し、Azure側で依存関係を自動インストールさせる ★★★
+          enable-oryx-build: true 
+          # ★★★ アプリケーションの仮想パスを明示的に指定 ★★★
+          # Web Appのルートから見てbackendディレクトリがアプリのルートであることをOryxに伝える
+          virtual-application: '/backend'
