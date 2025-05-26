@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+backend/.env
+
+# Node
+node_modules/
+.next/
+.env.local
+
+# その他
+*.log
+.DS_Store
