@@ -1,7 +1,6 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
 import requests
 import json
 from db_control import crud, mymodels_MySQL as mymodels
@@ -41,23 +40,17 @@ def create_customer(customer: Customer):
         result_obj = json.loads(result)
         return result_obj if result_obj else None
     return None
-    
-@app.get("/customers") # 同じパスだが、引数の定義が変わる
-def read_customers_dynamic(customer_id: Optional[str] = Query(None)): # customer_id をオプショナルにする
-    if customer_id:
-        # IDが提供された場合は特定の顧客を返す
-        result = crud.myselect(mymodels.Customers, customer_id)
-        if not result:
-            raise HTTPException(status_code=404, detail="Customer not found")
-        result_obj = json.loads(result)
-        return result_obj[0] if result_obj else None
-    else:
-        # IDが提供されない場合は全ての顧客を返す
-        result = crud.myselectAll(mymodels.Customers) # 全ての顧客を返すcrud関数を呼び出し
-        if not result:
-            return [] # 結果がNoneの場合は空配列を返す
-        return json.loads(result)
-        
+
+
+@app.get("/customers")
+def read_one_customer(customer_id: str = Query(...)):
+    result = crud.myselect(mymodels.Customers, customer_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    result_obj = json.loads(result)
+    return result_obj[0] if result_obj else None
+
+
 @app.get("/allcustomers")
 def read_all_customer():
     result = crud.myselectAll(mymodels.Customers)
@@ -92,4 +85,3 @@ def delete_customer(customer_id: str = Query(...)):
 def fetchtest():
     response = requests.get('https://jsonplaceholder.typicode.com/users')
     return response.json()
-
